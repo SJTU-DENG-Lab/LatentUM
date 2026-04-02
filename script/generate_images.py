@@ -18,7 +18,6 @@ def main() -> None:
     parser.add_argument("--output", default="generated.png")
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--dtype", default="bfloat16")
-    parser.add_argument("--no-progress", action="store_true")
     args = parser.parse_args()
 
     dtype = getattr(torch, args.dtype)
@@ -27,11 +26,7 @@ def main() -> None:
     print("===== Loading Decoder =====")
     decoder = LatentUMDecoderModel.from_pretrained(args.decoder_path, device=args.device, dtype=dtype)
     print("===== start to generate image =====")
-    images = model.generate_images(
-        args.prompt,
-        decoder=decoder,
-        show_progress=not args.no_progress,
-    )
+    images = model.generate_images(args.prompt, decoder=decoder)
     images[0].save(args.output)
     print(args.output)
 

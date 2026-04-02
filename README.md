@@ -62,8 +62,8 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 model = LatentUMModel.from_pretrained(
     "ckpt/latentum-base",
-    device=device,
-    dtype=dtype,
+    device = device,
+    dtype  = dtype,
 )
 answer = model.answer(
     "asset/blue_apple.png",
@@ -87,6 +87,39 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 model = LatentUMModel.from_pretrained(
     "ckpt/latentum-base",
+    device = device,
+    dtype  = dtype,
+)
+decoder = LatentUMDecoderModel.from_pretrained(
+    "ckpt/latentum-base/decoder",
+    device=device,
+    dtype=dtype,
+)
+images = model.generate_images(
+    "a photo of a cute dog",
+    decoder       = decoder,
+    show_progress = True,
+)
+images[0].save("generated.png")
+print("saved to generated.png")
+PY
+```
+
+#### Visual Spatial Planning
+
+```bash
+uv run python - <<'PY'
+import torch
+
+from model.decoder import LatentUMDecoderModel
+from model.latentum import LatentUMModel
+from model.latentum.spatial_planning import run_frozenlake_demo
+
+dtype = torch.bfloat16
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+model = LatentUMModel.from_pretrained(
+    "ckpt/latentum-vis-plan",
     device=device,
     dtype=dtype,
 )
@@ -95,13 +128,21 @@ decoder = LatentUMDecoderModel.from_pretrained(
     device=device,
     dtype=dtype,
 )
-images = model.generate_images(
-    "a photo of a blue banana",
-    decoder=decoder,
-    show_progress=True,
+result = run_frozenlake_demo(
+    model,
+    decoder,
+    image                    = "asset/frozenlake_level6_000.png",
+    output_dir               = "asset/frozenlake_demo",
+    max_steps                = 16,
+    max_text_tokens_per_step = 10,
+    temperature              = 0.7,
+    top_k                    = 50,
+    top_p                    = 0.95,
+    gif_duration             = 500,
 )
-images[0].save("generated.png")
-print("saved to generated.png")
+print(result["full_text"])
+print("saved to asset/frozenlake_demo")
+print(f"gif saved to {result['gif_path']}")
 PY
 ```
 

@@ -15,3 +15,6 @@ ckpt/
 AGENTS.md
 CLAUDE.md
 TODO.md
+plan.md
+/*.png
+asset/*_demo

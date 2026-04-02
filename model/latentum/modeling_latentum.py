@@ -225,13 +225,14 @@ class LatentUMModel(nn.Module):
             "trust_remote_code": True,
             "use_fast": False,
         }
+        tokenizer_source = path if (path / "tokenizer_config.json").exists() else config.base_model_name_or_path
         try:
             model.tokenizer = AutoTokenizer.from_pretrained(
-                config.base_model_name_or_path,
+                tokenizer_source,
                 fix_mistral_regex=True,
                 **tokenizer_kwargs,
             )
-            print("[LatentUM] Loaded tokenizer with fix_mistral_regex=True")
+            print(f"[LatentUM] Loaded tokenizer from {tokenizer_source} with fix_mistral_regex=True")
         except AttributeError as exc:
             if "backend_tokenizer" not in str(exc):
                 raise
@@ -240,7 +241,7 @@ class LatentUMModel(nn.Module):
                 "falling back to default tokenizer loading."
             )
             model.tokenizer = AutoTokenizer.from_pretrained(
-                config.base_model_name_or_path,
+                tokenizer_source,
                 **tokenizer_kwargs,
             )
         print(f"[LatentUM] Loaded tokenizer in {perf_counter() - tokenizer_start:.2f}s")
