@@ -2,15 +2,15 @@ import json
 from pathlib import Path
 from time import perf_counter
 from types import SimpleNamespace
-from typing import Any, Iterable
+from typing import Any, Iterable, Sequence
 
 import torch
 import torch.nn as nn
 from PIL import Image
 from safetensors.torch import load_file, save_file
 
-from model.decoder.reconstruct import sample_sd3_5
-from model.decoder.sd_decoder import load_mmdit_half_trainable
+from model.decoder.reconstruct import sample_sd3_5, sample_sd3_5_ref
+from model.decoder.sd_decoder import load_mmdit_half_trainable, load_mmdit_ref
 
 from .image_utils import load_image
 from .internvl.modeling_internvl_chat import InternVLChatModel
@@ -162,6 +162,182 @@ class LatentUMDecoderModel(nn.Module):
         path.mkdir(parents=True, exist_ok=True)
         self.config.save_pretrained(path)
         save_file(self.transformer.state_dict(), str(path / "model.safetensors"))
+
+
+class LatentUMRefDecoderModel(LatentUMDecoderModel):
+    def __init__(self, config: LatentUMDecoderConfig):
+        nn.Module.__init__(self)
+        if config.ref_mode != "concat":
+            raise ValueError(
+                f"LatentUMRefDecoderModel only supports ref_mode='concat', got {config.ref_mode!r}"
+            )
+        if config.num_ref_frames != 4:
+            raise ValueError(
+                f"LatentUMRefDecoderModel expects num_ref_frames=4, got {config.num_ref_frames}"
+            )
+
+        self.config = config
+        self._runtime_device = torch.device("cpu")
+        self._runtime_dtype = torch.float32
+        runtime_config = _to_namespace(config.to_dict())
+        self.transformer = load_mmdit_ref(runtime_config)
+        self.vae = None
+        self.noise_scheduler = None
+
+    @classmethod
+    def from_pretrained(
+        cls,
+        path: str | Path,
+        device: str | torch.device | None = None,
+        dtype: torch.dtype | None = None,
+    ) -> "LatentUMRefDecoderModel":
+        start_time = perf_counter()
+        path = Path(path)
+        config = LatentUMDecoderConfig.from_pretrained(path)
+        model = cls(config)
+        print(f"[RefDecoder] Initialized model skeleton in {perf_counter() - start_time:.2f}s")
+
+        from diffusers import AutoencoderKL, FlowMatchEulerDiscreteScheduler
+
+        state_path = path / "model.safetensors"
+        weights_start = perf_counter()
+        if state_path.exists():
+            model.transformer.load_state_dict(load_file(state_path), strict=True)
+        else:
+            raise FileNotFoundError(
+                f"Missing decoder weights at {state_path}. "
+                "Legacy checkpoint loading is disabled; please export decoder weights to model.safetensors first."
+            )
+        print(f"[RefDecoder] Loaded transformer weights in {perf_counter() - weights_start:.2f}s")
+
+        aux_start = perf_counter()
+        model.noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(
+            config.sd3_5_path, subfolder="scheduler"
+        )
+        model.vae = AutoencoderKL.from_pretrained(config.sd3_5_path, subfolder="vae")
+        model.vae.requires_grad_(False)
+        print(f"[RefDecoder] Loaded scheduler and VAE in {perf_counter() - aux_start:.2f}s")
+
+        if device is not None or dtype is not None:
+            move_start = perf_counter()
+            model.to(device=device, dtype=dtype)
+            print(f"[RefDecoder] Moved model to {device} ({dtype}) in {perf_counter() - move_start:.2f}s")
+        print(f"[RefDecoder] Total load time: {perf_counter() - start_time:.2f}s")
+        return model.eval()
+
+    def _normalize_ref_images(self, ref_images: Sequence[str | Path | Image.Image] | torch.Tensor) -> torch.Tensor:
+        expected_num_ref_frames = int(self.config.num_ref_frames)
+
+        if isinstance(ref_images, torch.Tensor):
+            ref_tensor = ref_images
+            if ref_tensor.ndim == 4:
+                if ref_tensor.shape[0] != expected_num_ref_frames:
+                    raise ValueError(
+                        f"ref_images must have {expected_num_ref_frames} frames, got {ref_tensor.shape[0]}"
+                    )
+                ref_tensor = ref_tensor.unsqueeze(0)
+            elif ref_tensor.ndim != 5:
+                raise ValueError(
+                    "ref_images tensor must have shape (N, 3, H, W) or (B, N, 3, H, W)"
+                )
+            if ref_tensor.shape[1] != expected_num_ref_frames:
+                raise ValueError(
+                    f"ref_images tensor must contain {expected_num_ref_frames} frames, got {ref_tensor.shape[1]}"
+                )
+            return ref_tensor.to(device=self._runtime_device, dtype=self._runtime_dtype)
+
+        if len(ref_images) != expected_num_ref_frames:
+            raise ValueError(f"ref_images must contain exactly {expected_num_ref_frames} images.")
+
+        import torchvision.transforms as transforms
+
+        preprocess = transforms.Compose(
+            [
+                transforms.Lambda(lambda img: img.convert("RGB") if img.mode != "RGB" else img),
+                transforms.Resize((self.config.image_size, self.config.image_size)),
+                transforms.ToTensor(),
+            ]
+        )
+        processed = []
+        for image in ref_images:
+            pil_image = Image.open(image).convert("RGB") if isinstance(image, (str, Path)) else image
+            processed.append(preprocess(pil_image))
+        return torch.stack(processed, dim=0).unsqueeze(0).to(
+            device=self._runtime_device,
+            dtype=self._runtime_dtype,
+        )
+
+    def _encode_ref_images(self, ref_images: torch.Tensor, target_batch_size: int | None = None) -> torch.Tensor:
+        if self.vae is None:
+            raise RuntimeError("Decoder VAE is not initialized.")
+
+        batch_size = ref_images.shape[0]
+        if target_batch_size is not None:
+            if batch_size == 1 and target_batch_size > 1:
+                ref_images = ref_images.expand(target_batch_size, -1, -1, -1, -1)
+                batch_size = target_batch_size
+            elif batch_size != target_batch_size:
+                raise ValueError(
+                    f"ref_images batch size {batch_size} does not match target batch size {target_batch_size}"
+                )
+
+        num_ref_frames = ref_images.shape[1]
+        if num_ref_frames != self.config.num_ref_frames:
+            raise ValueError(
+                f"Decoder expects {self.config.num_ref_frames} ref frames, got {num_ref_frames}"
+            )
+
+        _, _, _, height, width = ref_images.shape
+        flat_ref_images = ref_images.reshape(batch_size * num_ref_frames, 3, height, width)
+        ref_vae = self.vae.encode(flat_ref_images * 2 - 1).latent_dist.sample()
+        ref_vae = (ref_vae - self.vae.config.shift_factor) * self.vae.config.scaling_factor
+        latent_channels, latent_height, latent_width = ref_vae.shape[1:]
+        ref_vae = ref_vae.reshape(batch_size, num_ref_frames, latent_channels, latent_height, latent_width)
+        return ref_vae.reshape(batch_size, num_ref_frames * latent_channels, latent_height, latent_width)
+
+    def decode(
+        self,
+        latents: torch.Tensor,
+        *,
+        ref_images: Sequence[str | Path | Image.Image] | torch.Tensor,
+        seed: int | None = None,
+        num_inference_steps: int = 25,
+        guidance_scale: float = 1.0,
+        height: int | None = None,
+        width: int | None = None,
+        show_progress: bool = False,
+    ) -> list[Image.Image]:
+        del guidance_scale
+
+        if self.vae is None or self.noise_scheduler is None:
+            raise RuntimeError("Decoder components are not initialized.")
+
+        height = height or self.config.image_size
+        width = width or self.config.image_size
+        latents = latents.to(self._runtime_device, self._runtime_dtype)
+        ref_tensor = self._normalize_ref_images(ref_images)
+        ref_vae = self._encode_ref_images(ref_tensor, target_batch_size=latents.shape[0])
+
+        samples = sample_sd3_5_ref(
+            transformer=self.transformer,
+            vae=self.vae,
+            noise_scheduler=self.noise_scheduler,
+            device=self._runtime_device,
+            dtype=self._runtime_dtype,
+            context=latents,
+            ref_vae=ref_vae,
+            batch_size=latents.shape[0],
+            height=height,
+            width=width,
+            num_inference_steps=num_inference_steps,
+            seed=seed,
+            show_progress=show_progress,
+        )
+        images = []
+        for sample in samples:
+            image = (sample.float().permute(1, 2, 0).cpu().numpy() * 255).astype("uint8")
+            images.append(Image.fromarray(image))
+        return images
 
 
 class LatentUMModel(nn.Module):

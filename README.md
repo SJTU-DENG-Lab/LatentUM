@@ -146,6 +146,10 @@ print(f"gif saved to {result['gif_path']}")
 PY
 ```
 
+#### World Modeling
+
+Please refer to `scripts/run_latentum_wm.py`
+
 ### Python API
 
 ```python

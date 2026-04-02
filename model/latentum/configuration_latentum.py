@@ -46,6 +46,8 @@ class LatentUMDecoderConfig:
     context_dim: int = 256
     load_pretrained: bool = False
     image_size: int = 448
+    ref_mode: str = "none"
+    num_ref_frames: int = 0
     legacy_checkpoint_path: str | None = None
 
     @classmethod

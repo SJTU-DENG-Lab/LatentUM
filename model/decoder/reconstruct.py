@@ -72,3 +72,63 @@ def sample_sd3_5(
     latents = 1 / vae.config.scaling_factor * latents + vae.config.shift_factor
     image = vae.decode(latents).sample
     return (image / 2 + 0.5).clamp(0, 1)
+
+
+@torch.no_grad()
+def sample_sd3_5_ref(
+    transformer,
+    vae,
+    noise_scheduler,
+    device,
+    dtype,
+    context,
+    ref_vae,
+    batch_size=1,
+    height=192,
+    width=192,
+    num_inference_steps=20,
+    seed=None,
+    multi_modal_context=False,
+    show_progress=False,
+):
+    if show_progress:
+        from tqdm.auto import tqdm
+
+    if seed is not None:
+        torch.manual_seed(seed)
+
+    transformer.eval()
+
+    latent_height = height // 8
+    latent_width = width // 8
+    latents = torch.randn((batch_size, 16, latent_height, latent_width), device=device, dtype=dtype)
+
+    noise_scheduler.set_timesteps(num_inference_steps)
+    timesteps = noise_scheduler.timesteps.to(device=device, dtype=dtype)
+
+    step_iterator = tqdm(timesteps, desc="Decoding ref image", leave=False) if show_progress else timesteps
+
+    for t in step_iterator:
+        if t.ndim == 0:
+            t = t.unsqueeze(0)
+        t = t.repeat(batch_size)
+
+        noise_pred = transformer(
+            x=latents,
+            t=t,
+            context=context,
+            ref_vae=ref_vae,
+            y=None,
+            multi_modal_context=multi_modal_context,
+        )
+
+        latents = noise_scheduler.step(
+            model_output=noise_pred,
+            timestep=t[0] if t.ndim > 0 else t,
+            sample=latents,
+            return_dict=False,
+        )[0]
+
+    latents = 1 / vae.config.scaling_factor * latents + vae.config.shift_factor
+    image = vae.decode(latents).sample
+    return (image / 2 + 0.5).clamp(0, 1)

@@ -1,6 +1,6 @@
 from .configuration_decoder import LatentUMDecoderConfig
 
-__all__ = ["LatentUMDecoderConfig", "LatentUMDecoderModel"]
+__all__ = ["LatentUMDecoderConfig", "LatentUMDecoderModel", "LatentUMRefDecoderModel"]
 
 
 def __getattr__(name):
@@ -8,4 +8,8 @@ def __getattr__(name):
         from .modeling_decoder import LatentUMDecoderModel
 
         return LatentUMDecoderModel
+    if name == "LatentUMRefDecoderModel":
+        from .modeling_decoder import LatentUMRefDecoderModel
+
+        return LatentUMRefDecoderModel
     raise AttributeError(name)
