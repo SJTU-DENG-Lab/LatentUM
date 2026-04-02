@@ -47,16 +47,89 @@ Pre-trained weights are available on [HuggingFace](HUGGINGFACE_URL):
 | LatentUM_Vis-Plan | LatentUM_Base | Fine-tuned for visual spatial planning | [Link](HUGGINGFACE_URL) |
 | LatentUM_WM | LatentUM_Base | Fine-tuned for action-conditioned world modeling | [Link](HUGGINGFACE_URL) |
 
-### Inference
+### Examples
+
+#### Image Understanding
 
 ```bash
-# TODO
+uv run python - <<'PY'
+import torch
+
+from model.latentum import LatentUMModel
+
+dtype = torch.bfloat16
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+model = LatentUMModel.from_pretrained(
+    "ckpt/latentum-base",
+    device=device,
+    dtype=dtype,
+)
+answer = model.answer(
+    "asset/blue_apple.png",
+    "Describe this image.",
+)
+print(answer)
+PY
 ```
 
-### Training
+#### Image Generation
 
 ```bash
-# TODO
+uv run python - <<'PY'
+import torch
+
+from model.decoder import LatentUMDecoderModel
+from model.latentum import LatentUMModel
+
+dtype = torch.bfloat16
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+model = LatentUMModel.from_pretrained(
+    "ckpt/latentum-base",
+    device=device,
+    dtype=dtype,
+)
+decoder = LatentUMDecoderModel.from_pretrained(
+    "ckpt/latentum-base/decoder",
+    device=device,
+    dtype=dtype,
+)
+images = model.generate_images(
+    "a photo of a blue banana",
+    decoder=decoder,
+    show_progress=True,
+)
+images[0].save("generated.png")
+print("saved to generated.png")
+PY
+```
+
+### Python API
+
+```python
+import torch
+
+from model.decoder import LatentUMDecoderModel
+from model.latentum import LatentUMModel
+
+dtype = torch.bfloat16
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+model = LatentUMModel.from_pretrained(
+    "ckpt/latentum-base",
+    device=device,
+    dtype=dtype,
+)
+decoder = LatentUMDecoderModel.from_pretrained(
+    "ckpt/latentum-base/decoder",
+    device=device,
+    dtype=dtype,
+)
+
+latents = model.generate_latents("a photo of a blue banana")
+images = model.generate_images("a photo of a blue banana", decoder=decoder)
+answer = model.answer("path/to/image.png", "Describe this image in detail.")
 ```
 
 ## Citation

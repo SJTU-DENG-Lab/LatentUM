@@ -9,3 +9,9 @@ wheels/
 # Virtual environments
 .sii
 .venv
+.codex
+doc/
+ckpt/
+AGENTS.md
+CLAUDE.md
+TODO.md
