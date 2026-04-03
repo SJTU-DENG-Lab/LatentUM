@@ -6,14 +6,16 @@ Jiachun Jin<sup>1</sup>, Zetong Zhou<sup>1</sup>, Xiao Yang<sup>2</sup>, Hao Zha
 
 <sup>1</sup>Shanghai Jiao Tong University &nbsp;&nbsp; <sup>2</sup>Tsinghua University &nbsp;&nbsp; <sup>3</sup>UCSD
 
-[![Paper](https://img.shields.io/badge/Paper-arXiv-red)](ARXIV_URL)
+[![Paper](https://img.shields.io/badge/Paper-arXiv-red)](https://arxiv.org/abs/2604.02097)
 [![HuggingFace](https://img.shields.io/badge/Model-HuggingFace-yellow)](HUGGINGFACE_URL)
 <!-- [![Project Page](https://img.shields.io/badge/Project-Page-blue)](PROJECT_PAGE_URL)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green)](LICENSE) -->
 
 </div>
 
----
+<p align="center">
+<img src="asset/teaser.png">
+</p>
 
 ## Overview
 
@@ -25,6 +27,29 @@ Jiachun Jin<sup>1</sup>, Zetong Zhou<sup>1</sup>, Xiao Yang<sup>2</sup>, Hao Zha
 - **MBAQ:** Visual tokenizer trained to preserve VLM understanding behavior rather than pixel reconstruction.
 - **MoME:** Decoupled understanding/generation branches with shared self-attention for cross-modal interaction.
 - **Decoupled Pixel Decoder:** Optional diffusion decoder for pixel rendering, trained independently to keep the latent space semantics-focused.
+
+## Demos
+
+### T2I Generation
+
+<p align="center">
+<img src="asset/gallery.png">
+</p>
+
+### Visual Spatial Planning
+<div class="container">
+    <img src="asset/vsp_demo_1.gif" alt="forward" width="300">
+    <img src="asset/vsp_demo_2.gif" alt="turn right" width="300">
+</div>
+### World Modeling
+
+<div class="container">
+    <img src="asset/trajectory_0.gif" alt="forward" width="300">
+    <img src="asset/trajectory_1.gif" alt="turn right" width="300">
+</div>
+
+
+
 
 ## Getting Started
 
@@ -150,41 +175,31 @@ PY
 
 Please refer to `scripts/run_latentum_wm.py`
 
-### Python API
-
-```python
-import torch
-
-from model.decoder import LatentUMDecoderModel
-from model.latentum import LatentUMModel
-
-dtype = torch.bfloat16
-device = "cuda" if torch.cuda.is_available() else "cpu"
-
-model = LatentUMModel.from_pretrained(
-    "ckpt/latentum-base",
-    device=device,
-    dtype=dtype,
-)
-decoder = LatentUMDecoderModel.from_pretrained(
-    "ckpt/latentum-base/decoder",
-    device=device,
-    dtype=dtype,
-)
-
-latents = model.generate_latents("a photo of a blue banana")
-images = model.generate_images("a photo of a blue banana", decoder=decoder)
-answer = model.answer("path/to/image.png", "Describe this image in detail.")
-```
 
 ## Citation
 
 If you find this work useful, please cite:
 
 ```bibtex
-# TODO
+@article{jin2026latentum,
+  title         = {LatentUM: Unleashing the Potential of Interleaved Cross-Modal Reasoning via a Latent-Space Unified Model},
+  author        = {Jiachun Jin and Zetong Zhou and Xiao Yang and Hao Zhang and Pengfei Liu and Jun Zhu and Zhijie Deng},
+  year          = {2026},
+  eprint        = {2604.02097},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CV},
+  url           = {https://arxiv.org/abs/2604.02097},
+}
 ```
-
+@misc{jin2026latentumunleashingpotentialinterleaved,
+      title={LatentUM: Unleashing the Potential of Interleaved Cross-Modal Reasoning via a Latent-Space Unified Model}, 
+      author={Jiachun Jin and Zetong Zhou and Xiao Yang and Hao Zhang and Pengfei Liu and Jun Zhu and Zhijie Deng},
+      year={2026},
+      eprint={2604.02097},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV},
+      url={https://arxiv.org/abs/2604.02097}, 
+}
 ## Acknowledgements
 
 We thank the authors of InternVL, BLIP3o, UniTok, and Stable Diffusion 3.5 for open-sourcing their models and data.
