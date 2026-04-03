@@ -4,9 +4,18 @@ from pathlib import Path
 from typing import Any
 
 
+def resolve_pretrained_path(path: str | Path) -> Path:
+    resolved = Path(path)
+    if resolved.exists():
+        return resolved
+    from huggingface_hub import snapshot_download
+
+    return Path(snapshot_download(repo_id=str(path)))
+
+
 @dataclass
 class LatentUMConfig:
-    base_model_name_or_path: str
+    base_model_name_or_path: str | None = None
     quantizer_ckpt_path: str | None = None
     llm_hidden_size: int = 2560
     mixture_mode: str = "mot"
@@ -15,6 +24,7 @@ class LatentUMConfig:
     num_image_tokens: int = 256
     max_num_patches: int = 12
     image_token: str = "<image>"
+    internvl_config: dict[str, Any] = field(default_factory=dict)
     model: dict[str, Any] = field(default_factory=dict)
     quantizer: dict[str, Any] = field(default_factory=dict)
     head: dict[str, Any] = field(default_factory=dict)
@@ -27,7 +37,8 @@ class LatentUMConfig:
 
     @classmethod
     def from_pretrained(cls, path: str | Path) -> "LatentUMConfig":
-        with open(Path(path) / "config.json", "r", encoding="utf-8") as f:
+        resolved_path = resolve_pretrained_path(path)
+        with open(resolved_path / "config.json", "r", encoding="utf-8") as f:
             return cls.from_dict(json.load(f))
 
     def to_dict(self) -> dict[str, Any]:
@@ -56,7 +67,8 @@ class LatentUMDecoderConfig:
 
     @classmethod
     def from_pretrained(cls, path: str | Path) -> "LatentUMDecoderConfig":
-        with open(Path(path) / "config.json", "r", encoding="utf-8") as f:
+        resolved_path = resolve_pretrained_path(path)
+        with open(resolved_path / "config.json", "r", encoding="utf-8") as f:
             return cls.from_dict(json.load(f))
 
     def to_dict(self) -> dict[str, Any]:

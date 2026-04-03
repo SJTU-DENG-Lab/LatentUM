@@ -13,13 +13,14 @@ from model.decoder.reconstruct import sample_sd3_5, sample_sd3_5_ref
 from model.decoder.sd_decoder import load_mmdit_half_trainable, load_mmdit_ref
 
 from .image_utils import load_image
+from .internvl.configuration_internvl_chat import InternVLChatConfig
 from .internvl.modeling_internvl_chat import InternVLChatModel
 from .latent_generator import intern_gen
 from .mixture import modify_internvl_to_mixture
 from .quantizer_loader import build_quantizer
 from .utils import disable_torch_init
 
-from .configuration_latentum import LatentUMConfig, LatentUMDecoderConfig
+from .configuration_latentum import LatentUMConfig, LatentUMDecoderConfig, resolve_pretrained_path
 
 
 def _to_namespace(data: dict[str, Any]) -> SimpleNamespace:
@@ -47,6 +48,56 @@ def _extract_prefixed_state_dict(
     }
 
 
+def _load_internvl_from_bundled_config(config: LatentUMConfig) -> InternVLChatModel:
+    if not config.internvl_config:
+        raise ValueError("Missing bundled InternVL config.")
+    internvl_config = InternVLChatConfig.from_dict(config.internvl_config)
+    return InternVLChatModel(internvl_config)
+
+
+def _load_bundled_internvl_config(path: Path) -> dict[str, Any]:
+    bundled_config_path = path / "internvl" / "config.json"
+    if not bundled_config_path.exists():
+        return {}
+    with open(bundled_config_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _sanitize_internvl_config_dict(config_dict: dict[str, Any]) -> dict[str, Any]:
+    sanitized = dict(config_dict)
+    sanitized.pop("_name_or_path", None)
+
+    llm_config = sanitized.get("llm_config")
+    if isinstance(llm_config, dict):
+        llm_config = dict(llm_config)
+        llm_config.pop("_name_or_path", None)
+        sanitized["llm_config"] = llm_config
+
+    vision_config = sanitized.get("vision_config")
+    if isinstance(vision_config, dict):
+        vision_config = dict(vision_config)
+        vision_config.pop("_name_or_path", None)
+        sanitized["vision_config"] = vision_config
+
+    return sanitized
+
+
+def _load_decoder_auxiliaries(path: Path):
+    scheduler_path = path / "scheduler"
+    vae_path = path / "vae"
+    if not scheduler_path.exists():
+        raise FileNotFoundError(f"Missing decoder scheduler directory at {scheduler_path}.")
+    if not vae_path.exists():
+        raise FileNotFoundError(f"Missing decoder VAE directory at {vae_path}.")
+
+    from diffusers import AutoencoderKL, FlowMatchEulerDiscreteScheduler
+
+    noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(scheduler_path)
+    vae = AutoencoderKL.from_pretrained(vae_path)
+    vae.requires_grad_(False)
+    return noise_scheduler, vae
+
+
 class LatentUMDecoderModel(nn.Module):
     def __init__(self, config: LatentUMDecoderConfig):
         super().__init__()
@@ -55,6 +106,7 @@ class LatentUMDecoderModel(nn.Module):
         self._runtime_dtype = torch.float32
 
         runtime_config = _to_namespace(config.to_dict())
+        runtime_config.load_pretrained = False
         self.transformer = load_mmdit_half_trainable(runtime_config)
         self.vae = None
         self.noise_scheduler = None
@@ -67,12 +119,10 @@ class LatentUMDecoderModel(nn.Module):
         dtype: torch.dtype | None = None,
     ) -> "LatentUMDecoderModel":
         start_time = perf_counter()
-        path = Path(path)
+        path = resolve_pretrained_path(path)
         config = LatentUMDecoderConfig.from_pretrained(path)
         model = cls(config)
         print(f"[Decoder] Initialized model skeleton in {perf_counter() - start_time:.2f}s")
-
-        from diffusers import AutoencoderKL, FlowMatchEulerDiscreteScheduler
 
         state_path = path / "model.safetensors"
         weights_start = perf_counter()
@@ -86,11 +136,7 @@ class LatentUMDecoderModel(nn.Module):
         print(f"[Decoder] Loaded transformer weights in {perf_counter() - weights_start:.2f}s")
 
         aux_start = perf_counter()
-        model.noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(
-            config.sd3_5_path, subfolder="scheduler"
-        )
-        model.vae = AutoencoderKL.from_pretrained(config.sd3_5_path, subfolder="vae")
-        model.vae.requires_grad_(False)
+        model.noise_scheduler, model.vae = _load_decoder_auxiliaries(path)
         print(f"[Decoder] Loaded scheduler and VAE in {perf_counter() - aux_start:.2f}s")
 
         if device is not None or dtype is not None:
@@ -162,6 +208,10 @@ class LatentUMDecoderModel(nn.Module):
         path.mkdir(parents=True, exist_ok=True)
         self.config.save_pretrained(path)
         save_file(self.transformer.state_dict(), str(path / "model.safetensors"))
+        if self.noise_scheduler is None or self.vae is None:
+            raise RuntimeError("Decoder scheduler and VAE must be initialized before save_pretrained().")
+        self.noise_scheduler.save_pretrained(path / "scheduler")
+        self.vae.save_pretrained(path / "vae")
 
 
 class LatentUMRefDecoderModel(LatentUMDecoderModel):
@@ -180,6 +230,7 @@ class LatentUMRefDecoderModel(LatentUMDecoderModel):
         self._runtime_device = torch.device("cpu")
         self._runtime_dtype = torch.float32
         runtime_config = _to_namespace(config.to_dict())
+        runtime_config.load_pretrained = False
         self.transformer = load_mmdit_ref(runtime_config)
         self.vae = None
         self.noise_scheduler = None
@@ -192,12 +243,10 @@ class LatentUMRefDecoderModel(LatentUMDecoderModel):
         dtype: torch.dtype | None = None,
     ) -> "LatentUMRefDecoderModel":
         start_time = perf_counter()
-        path = Path(path)
+        path = resolve_pretrained_path(path)
         config = LatentUMDecoderConfig.from_pretrained(path)
         model = cls(config)
         print(f"[RefDecoder] Initialized model skeleton in {perf_counter() - start_time:.2f}s")
-
-        from diffusers import AutoencoderKL, FlowMatchEulerDiscreteScheduler
 
         state_path = path / "model.safetensors"
         weights_start = perf_counter()
@@ -211,11 +260,7 @@ class LatentUMRefDecoderModel(LatentUMDecoderModel):
         print(f"[RefDecoder] Loaded transformer weights in {perf_counter() - weights_start:.2f}s")
 
         aux_start = perf_counter()
-        model.noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(
-            config.sd3_5_path, subfolder="scheduler"
-        )
-        model.vae = AutoencoderKL.from_pretrained(config.sd3_5_path, subfolder="vae")
-        model.vae.requires_grad_(False)
+        model.noise_scheduler, model.vae = _load_decoder_auxiliaries(path)
         print(f"[RefDecoder] Loaded scheduler and VAE in {perf_counter() - aux_start:.2f}s")
 
         if device is not None or dtype is not None:
@@ -351,7 +396,14 @@ class LatentUMModel(nn.Module):
         model_config = _to_namespace(config.model)
         quantizer_config = _to_namespace(config.quantizer)
 
-        self.internvl = InternVLChatModel.from_pretrained(config.base_model_name_or_path)
+        if config.internvl_config:
+            self.internvl = _load_internvl_from_bundled_config(config)
+        elif config.base_model_name_or_path:
+            self.internvl = InternVLChatModel.from_pretrained(config.base_model_name_or_path)
+        else:
+            raise ValueError(
+                "LatentUM config must provide either bundled internvl_config or base_model_name_or_path."
+            )
         self.internvl = modify_internvl_to_mixture(self.internvl, model_config)
         self.quantizer = build_quantizer(quantizer_config)
         self.tokenizer = None
@@ -364,8 +416,10 @@ class LatentUMModel(nn.Module):
         dtype: torch.dtype | None = None,
     ) -> "LatentUMModel":
         start_time = perf_counter()
-        path = Path(path)
+        path = resolve_pretrained_path(path)
         config = LatentUMConfig.from_pretrained(path)
+        if not config.internvl_config:
+            config.internvl_config = _load_bundled_internvl_config(path)
         model = cls(config)
         print(f"[LatentUM] Initialized model skeleton in {perf_counter() - start_time:.2f}s")
 
@@ -449,6 +503,7 @@ class LatentUMModel(nn.Module):
     def save_pretrained(self, path: str | Path) -> None:
         path = Path(path)
         path.mkdir(parents=True, exist_ok=True)
+        self.config.internvl_config = _sanitize_internvl_config_dict(self.internvl.config.to_dict())
         self.config.save_pretrained(path)
         with open(path / "generation_config.json", "w", encoding="utf-8") as f:
             json.dump(
@@ -466,6 +521,10 @@ class LatentUMModel(nn.Module):
             legacy_quantizer_path.unlink()
         if self.tokenizer is not None:
             self.tokenizer.save_pretrained(path)
+        bundled_config_dir = path / "internvl"
+        bundled_config_dir.mkdir(parents=True, exist_ok=True)
+        bundled_config = InternVLChatConfig.from_dict(self.config.internvl_config)
+        bundled_config.save_pretrained(bundled_config_dir)
 
     def generate_latents(
         self,

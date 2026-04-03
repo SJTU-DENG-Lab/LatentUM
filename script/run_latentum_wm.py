@@ -1,20 +1,25 @@
+import os
+import sys
+
 import torch
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from model.decoder import LatentUMRefDecoderModel
 from model.latentum import LatentUMModel
 from model.latentum.world_model import run_wm_inference
 
 
-MODEL_PATH = "ckpt/latentum-wm"
-DECODER_PATH = "ckpt/latentum-wm/decoder"
+MODEL_PATH = "SJTU-DENG-Lab/LatentUM-WM"
+DECODER_PATH = "SJTU-DENG-Lab/LatentUM-Decoder-Ref"
 OUTPUT_DIR = "wm_output"
 
 # Need 4 frames as context
 CONTEXT_IMAGES = [
-    "asset/recon_0.jpg",
-    "asset/recon_1.jpg",
-    "asset/recon_2.jpg",
-    "asset/recon_3.jpg",
+    "asset/context_000.png",
+    "asset/context_001.png",
+    "asset/context_002.png",
+    "asset/context_003.png",
 ]
 
 # Need 3 actions as context

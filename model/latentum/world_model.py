@@ -7,6 +7,7 @@ from typing import Sequence
 import torch
 import torchvision.transforms as transforms
 from PIL import Image
+from tqdm import trange
 
 from .modeling_latentum import LatentUMModel, LatentUMRefDecoderModel
 
@@ -253,7 +254,7 @@ class LatentUMWorldModelInferencer:
         )
         generated_codes.append(code)
 
-        for _ in range(self.num_image_tokens - 1):
+        for _ in trange(self.num_image_tokens - 1):
             z_q, _ = self.quantizer.indices_to_feature(code.unsqueeze(1))
             current_input = self.internvl.visual_projector(z_q)
             outputs = self.internvl.language_model.model(
@@ -431,7 +432,7 @@ def run_wm_inference(
     total_images[0].save(
         images_dir / 'generated.gif',
         save_all=True,
-        append_images=images[1:],
+        append_images=total_images[1:],
         duration=400,
         loop=0
     )

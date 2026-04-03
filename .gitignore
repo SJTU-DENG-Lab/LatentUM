@@ -12,9 +12,13 @@ wheels/
 .codex
 doc/
 ckpt/
+wm_output/
 AGENTS.md
 CLAUDE.md
 TODO.md
 plan.md
 /*.png
 asset/*_demo
+script/export_hf_checkpoint.py
+script/export_hf_decoder.py
+script/export_hf_ref_decoder.py

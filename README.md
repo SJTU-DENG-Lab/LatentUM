@@ -7,7 +7,7 @@ Jiachun Jin<sup>1</sup>, Zetong Zhou<sup>1</sup>, Xiao Yang<sup>2</sup>, Hao Zha
 <sup>1</sup>Shanghai Jiao Tong University &nbsp;&nbsp; <sup>2</sup>Tsinghua University &nbsp;&nbsp; <sup>3</sup>UCSD
 
 [![Paper](https://img.shields.io/badge/Paper-arXiv-red)](https://arxiv.org/abs/2604.02097)
-[![HuggingFace](https://img.shields.io/badge/Model-HuggingFace-yellow)](HUGGINGFACE_URL)
+[![HuggingFace](https://img.shields.io/badge/Model-HuggingFace-yellow)](https://huggingface.co/collections/SJTU-DENG-Lab/latentum)
 <!-- [![Project Page](https://img.shields.io/badge/Project-Page-blue)](PROJECT_PAGE_URL)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green)](LICENSE) -->
 
@@ -38,14 +38,15 @@ Jiachun Jin<sup>1</sup>, Zetong Zhou<sup>1</sup>, Xiao Yang<sup>2</sup>, Hao Zha
 
 ### Visual Spatial Planning
 <div class="container">
-    <img src="asset/vsp_demo_1.gif" alt="forward" width="300">
-    <img src="asset/vsp_demo_2.gif" alt="turn right" width="300">
+    <img src="asset/vsp_demo_1.gif" alt="forward" width="400">
+    <img src="asset/vsp_demo_2.gif" alt="turn right" width="400">
 </div>
+
 ### World Modeling
 
 <div class="container">
-    <img src="asset/trajectory_0.gif" alt="forward" width="300">
-    <img src="asset/trajectory_1.gif" alt="turn right" width="300">
+    <img src="asset/trajectory_0.gif" alt="forward" width="400">
+    <img src="asset/trajectory_1.gif" alt="turn right" width="400">
 </div>
 
 
@@ -67,10 +68,11 @@ Pre-trained weights are available on [HuggingFace](HUGGINGFACE_URL):
 
 | Model | Base | Description | Download |
 |-------|------|-------------|----------|
-| LatentUM_Base | InternVL3.5-4B | Base model for understanding + generation | [Link](HUGGINGFACE_URL) |
-| LatentUM_Vis-Gen | LatentUM_Base | Post-trained via GRPO for visual generation with self-reflection | [Link](HUGGINGFACE_URL) |
-| LatentUM_Vis-Plan | LatentUM_Base | Fine-tuned for visual spatial planning | [Link](HUGGINGFACE_URL) |
-| LatentUM_WM | LatentUM_Base | Fine-tuned for action-conditioned world modeling | [Link](HUGGINGFACE_URL) |
+| LatentUM_Base | InternVL3.5-4B | Base model for understanding + generation | [Link](https://huggingface.co/SJTU-DENG-Lab/LatentUM-Base) |
+| LatentUM_Vis-Plan | LatentUM_Base | Fine-tuned for visual spatial planning | [Link](https://huggingface.co/SJTU-DENG-Lab/LatentUM-Vis-Plan) |
+| LatentUM_WM | LatentUM_Base | Fine-tuned for action-conditioned world modeling | [Link](https://huggingface.co/SJTU-DENG-Lab/LatentUM-WM) |
+| LatentUM_GenEval | LatentUM_Base | Fine-tuned for GenEval with self-reflection + pixel reward | [Link](https://huggingface.co/SJTU-DENG-Lab/LatentUM-Vis-Plan) |
+| Decoupled Pixel Decoder | stable-diffusion-3-medium | Pixel decoder | [Link](SJTU-DENG-Lab/LatentUM-Decoder) |
 
 ### Examples
 
@@ -86,7 +88,7 @@ dtype = torch.bfloat16
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 model = LatentUMModel.from_pretrained(
-    "ckpt/latentum-base",
+    "SJTU-DENG-Lab/LatentUM-Base",
     device = device,
     dtype  = dtype,
 )
@@ -111,12 +113,12 @@ dtype = torch.bfloat16
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 model = LatentUMModel.from_pretrained(
-    "ckpt/latentum-base",
+    "SJTU-DENG-Lab/LatentUM-Base", # alternative: "SJTU-DENG-Lab/LatentUM-GenEval"
     device = device,
     dtype  = dtype,
 )
 decoder = LatentUMDecoderModel.from_pretrained(
-    "ckpt/latentum-base/decoder",
+    "SJTU-DENG-Lab/LatentUM-Decoder",
     device=device,
     dtype=dtype,
 )
@@ -144,12 +146,12 @@ dtype = torch.bfloat16
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 model = LatentUMModel.from_pretrained(
-    "ckpt/latentum-vis-plan",
+    "SJTU-DENG-Lab/LatentUM-Vis-Plan",
     device=device,
     dtype=dtype,
 )
 decoder = LatentUMDecoderModel.from_pretrained(
-    "ckpt/latentum-base/decoder",
+    "SJTU-DENG-Lab/LatentUM-Decoder",
     device=device,
     dtype=dtype,
 )
@@ -173,7 +175,9 @@ PY
 
 #### World Modeling
 
-Please refer to `scripts/run_latentum_wm.py`
+```
+python script/run_latentum_wm.py 
+```
 
 
 ## Citation
