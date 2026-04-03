@@ -22,3 +22,5 @@ asset/*_demo
 script/export_hf_checkpoint.py
 script/export_hf_decoder.py
 script/export_hf_ref_decoder.py
+script/image_understand.py
+script/export_hf_vis_plan_checkpoint.py

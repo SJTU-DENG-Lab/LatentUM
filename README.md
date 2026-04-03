@@ -71,8 +71,8 @@ Pre-trained weights are available on [HuggingFace](HUGGINGFACE_URL):
 | LatentUM_Base | InternVL3.5-4B | Base model for understanding + generation | [Link](https://huggingface.co/SJTU-DENG-Lab/LatentUM-Base) |
 | LatentUM_Vis-Plan | LatentUM_Base | Fine-tuned for visual spatial planning | [Link](https://huggingface.co/SJTU-DENG-Lab/LatentUM-Vis-Plan) |
 | LatentUM_WM | LatentUM_Base | Fine-tuned for action-conditioned world modeling | [Link](https://huggingface.co/SJTU-DENG-Lab/LatentUM-WM) |
-| LatentUM_GenEval | LatentUM_Base | Fine-tuned for GenEval with self-reflection + pixel reward | [Link](https://huggingface.co/SJTU-DENG-Lab/LatentUM-Vis-Plan) |
-| Decoupled Pixel Decoder | stable-diffusion-3-medium | Pixel decoder | [Link](SJTU-DENG-Lab/LatentUM-Decoder) |
+| LatentUM_GenEval | LatentUM_Base | Fine-tuned for GenEval with self-reflection + pixel reward | [Link](https://huggingface.co/SJTU-DENG-Lab/LatentUM-GenEval) |
+| Pixel Decoder | stable-diffusion-3-medium | Pixel decoder | [Link](https://huggingface.co/SJTU-DENG-Lab/LatentUM-Decoder) |
 
 ### Examples
 
@@ -195,7 +195,7 @@ If you find this work useful, please cite:
 ```
 ## Acknowledgements
 
-We thank the authors of InternVL, BLIP3o, UniTok, and Stable Diffusion 3.5 for open-sourcing their models and data.
+We thank the authors of InternVL, BLIP3o, UniTok, and Stable Diffusion 3.5 for open-sourcing their great works!
 
 ## License
 
