@@ -186,12 +186,12 @@ If you find this work useful, please cite:
 
 ```bibtex
 @article{jin2026latentum,
-  title   = {LatentUM: Unleashing the Potential of Interleaved Cross-Modal Reasoning via a Latent-Space Unified Model},
-  author  = {Jiachun Jin and Zetong Zhou and Xiao Yang and Hao Zhang and Pengfei Liu and Jun Zhu and Zhijie Deng},
-  journal = {arXiv preprint arXiv:2604.02097},
-  year    = {2026},
-  url     = {https://arxiv.org/abs/2604.02097}
+  title={LatentUM: Unleashing the Potential of Interleaved Cross-Modal Reasoning via a Latent-Space Unified Model},
+  author={Jin, Jiachun and Zhou, Zetong and Yang, Xiao and Zhang, Hao and Liu, Pengfei and Zhu, Jun and Deng, Zhijie},
+  journal={arXiv preprint arXiv:2604.02097},
+  year={2026}
 }
+
 ```
 ## Acknowledgements
 
