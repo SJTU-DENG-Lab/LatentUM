@@ -181,7 +181,7 @@ python script/run_latentum_wm.py
 
 #### Interleaved SFT Example
 
-See [interleaved_sft_example.md](interleaved_sft_example.md) for the full interleaved SFT example, including the JSONL data format, the shipped FrozenLake training sample in `asset/frozenlake_interleaved_example/`, why the workflow is split into `lang_only` and `vision_only`, the exact training commands, and the VSP inference script for the resulting example checkpoint.
+See [interleaved_sft_example.md](interleaved_sft_example.md) for the full interleaved SFT example, including the JSONL data format, the shipped FrozenLake training sample in `asset/frozenlake_interleaved_example/`.
 
 
 ## Citation
