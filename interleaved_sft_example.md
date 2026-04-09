@@ -74,7 +74,7 @@ uv run python script/train_interleaved_lang_only.py \
   --output-dir outputs/interleaved-lang \
   --batch-size 1 \
   --max-seq-length 1536 \
-  --num-steps 100
+  --num-steps 10
 ```
 
 Vision-path SFT:
@@ -86,7 +86,7 @@ uv run python script/train_interleaved_vision_only.py \
   --output-dir outputs/interleaved-vision \
   --batch-size 1 \
   --max-seq-length 1536 \
-  --num-steps 400
+  --num-steps 10
 ```
 
 Recommended order:
