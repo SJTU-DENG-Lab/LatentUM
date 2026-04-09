@@ -3,6 +3,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+import torch
+
 
 def resolve_pretrained_path(path: str | Path) -> Path:
     resolved = Path(path)
@@ -11,6 +13,20 @@ def resolve_pretrained_path(path: str | Path) -> Path:
     from huggingface_hub import snapshot_download
 
     return Path(snapshot_download(repo_id=str(path)))
+
+
+def _make_json_serializable(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {key: _make_json_serializable(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_make_json_serializable(item) for item in value]
+    if isinstance(value, tuple):
+        return [_make_json_serializable(item) for item in value]
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, torch.dtype):
+        return str(value).removeprefix("torch.")
+    return value
 
 
 @dataclass
@@ -42,7 +58,7 @@ class LatentUMConfig:
             return cls.from_dict(json.load(f))
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        return _make_json_serializable(asdict(self))
 
     def save_pretrained(self, path: str | Path) -> None:
         path = Path(path)
@@ -72,7 +88,7 @@ class LatentUMDecoderConfig:
             return cls.from_dict(json.load(f))
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        return _make_json_serializable(asdict(self))
 
     def save_pretrained(self, path: str | Path) -> None:
         path = Path(path)
